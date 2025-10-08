@@ -19,21 +19,16 @@ jobs:
       with:
         node-version: '20'
         cache: 'npm'
-        cache-dependency-path: colour-check/package-lock.json
         
     - name: Install dependencies
-      run: |
-        cd colour-check
-        npm ci
+      run: npm ci
         
     - name: Build
-      run: |
-        cd colour-check
-        npm run build
+      run: npm run build
         
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       if: github.ref == 'refs/heads/main'
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: colour-check/dist
+        publish_dir: dist
