@@ -20,21 +20,32 @@ const rgbToHex = (r, g, b) => {
   return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
 }
 
+// RGBからYCbCrへの変換（ITU-R BT.601標準）
 const rgbToYcbcr = (r, g, b) => {
+  // 係数: CA = 0.299, CB = 0.114 (BT.601)
   const y = 0.299 * r + 0.587 * g + 0.114 * b
   const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b
   const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b
+  
   return {
-    y: Math.round(y),
-    cb: Math.round(cb),
-    cr: Math.round(cr)
+    y: Math.round(Math.max(16, Math.min(235, y))),
+    cb: Math.round(Math.max(16, Math.min(240, cb))),
+    cr: Math.round(Math.max(16, Math.min(240, cr)))
   }
 }
 
+// YCbCrからRGBへの変換（ITU-R BT.601標準）
 const ycbcrToRgb = (y, cb, cr) => {
-  const r = y + 1.402 * (cr - 128)
-  const g = y - 0.344136 * (cb - 128) - 0.714136 * (cr - 128)
-  const b = y + 1.772 * (cb - 128)
+  // オフセット調整（限定レンジ: Y=16-235, Cb/Cr=16-240）
+  const yAdj = y - 16
+  const cbAdj = cb - 128
+  const crAdj = cr - 128
+  
+  // 標準的なBT.601変換式
+  const r = 1.164 * yAdj + 1.596 * crAdj
+  const g = 1.164 * yAdj - 0.392 * cbAdj - 0.813 * crAdj
+  const b = 1.164 * yAdj + 2.017 * cbAdj
+  
   return {
     r: Math.max(0, Math.min(255, Math.round(r))),
     g: Math.max(0, Math.min(255, Math.round(g))),
@@ -92,7 +103,8 @@ const validateAndConvertColor = () => {
         const y = parseInt(ycbcrMatch[1])
         const cb = parseInt(ycbcrMatch[2])
         const cr = parseInt(ycbcrMatch[3])
-        if (y >= 0 && y <= 255 && cb >= 0 && cb <= 255 && cr >= 0 && cr <= 255) {
+        // YCbCrの標準範囲: Y=16-235, Cb/Cr=16-240
+        if (y >= 16 && y <= 235 && cb >= 16 && cb <= 240 && cr >= 16 && cr <= 240) {
           rgb = ycbcrToRgb(y, cb, cr)
           currentColor.value = rgbToHex(rgb.r, rgb.g, rgb.b)
         }
@@ -142,7 +154,7 @@ const copyToClipboard = (text) => {
           <label class="input-label">
             {{ inputType === 'hex' ? 'HEX値 (例: #3B82F6)' : 
                inputType === 'rgb' ? 'RGB値 (例: 59, 130, 246)' : 
-               'YCbCr値 (例: 120, 100, 150)' }}
+               'YCbCr値 (例: 120, 128, 150) - Y:16-235, Cb/Cr:16-240' }}
           </label>
           <div class="input-container">
             <input 
@@ -150,7 +162,7 @@ const copyToClipboard = (text) => {
               @input="validateAndConvertColor"
               :placeholder="inputType === 'hex' ? '#3B82F6' : 
                           inputType === 'rgb' ? '59, 130, 246' : 
-                          '120, 100, 150'"
+                          '120, 128, 150'"
               class="color-input"
             />
             <button @click="validateAndConvertColor" class="convert-btn">
